@@ -1,20 +1,20 @@
-Why is there so much code anyway in the NFRIP and WOFS repos?
-And so many versions intermingled?
-I reckon it is nigh unmaintainable, despite that the algorithm is simple:
+Currently, the NFRIP and WOfS repositories have large volumes of code, which impinges on their maintainability.
 
 Algorithm
-=========
+---------
+The algorithm is actually quite simple:
 
-Stage One: Water tiles
-----------------------
 
-###Part i: Decision tree
+### Stage One: Wofls
 
-6 Landsat input bands -> classifier -> boolean output band
+Water Observation Feature Layers. These consist of a single 8-bit integer band.
 
-The classifier is just a tree with 21 nodes (published).
+#### Decision tree
 
-###Part ii: Filter masks
+The standard classifier is simply band maths performed on the 6 EO source bands. 
+(A published tree with 21 nodes, where thresholds are applied to three raw bands and three band ratio indices, producing boolean output.)
+
+#### Filter masks
 Mask flags are accumulated onto the output band.
 
 Input: the landsat image, the pixel quality product, and the elevation model.
@@ -22,16 +22,15 @@ Input: the landsat image, the pixel quality product, and the elevation model.
 The difficulty here is generating some of the flags (e.g. terrain shadow).
 
 
-Stage Two: Summary statistics
------------------------------
+### Stage Two: Summary
 
-Inputs: 
-    0. mean mosaic of the water tiles,
-    1. multi-res valley bottom flatness,
-    2. MODIS open water likelihood, hydrological geofabric,
-    3. slope,
-    4-12. hydrological geofabric (boolean vectors),
-    13. Aus Stat Geog Standard (urban boolean).
+Inputs:  
+0. mean mosaic of the wofls,  
+1. multi-res valley bottom flatness,  
+2. MODIS open water likelihood, hydrological geofabric,  
+3. slope,  
+4-12. hydrological geofabric (boolean vectors),  
+13. Aus Stat Geog Standard (urban boolean).
 
-Logistic function wrapping a weighted sum. Looks cheap other than the mosaic.
+Logistic function wrapping a linear combination.
 
