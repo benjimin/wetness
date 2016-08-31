@@ -3,8 +3,8 @@
 import numpy
 import logging
 import gc
-import argparse
-from osgeo import gdal
+#import argparse
+#from osgeo import gdal
 
 def classify(images, float64=False):
     """
@@ -57,7 +57,7 @@ def classify(images, float64=False):
 
     """
 
-    logger = logging.getLogger("WaterClasserfier")
+    logger = logging.getLogger("WaterClasserfier") # !? typo..
     logger.debug("Started")
 
     def band_ratio(a,b):

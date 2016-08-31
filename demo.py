@@ -13,7 +13,7 @@ extent = {'lon':(149.0,149.5), 'lat':(-35.0, -35.5)}
 time = ('1994-09-21','1994-09-22')
 
 bands = ['blue','green','red','nir','swir1','swir2']
-source = dc.load(product='ls5_nbar_albers', measurements=bands, time=time, **extent).isel(time=0).to_array(dim='band')
+source = dc.load(product='ls5_nbar_albers', measurements=bands, time=time, **extent).isel(time=0)
 pq = dc.load(product='ls5_pq_albers', time=time, **extent).isel(time=0).pixelquality
 dsm = dc.load(product='dsm1sv10', **extent).isel(time=0).elevation
 
@@ -24,20 +24,21 @@ dsm = dc.load(product='dsm1sv10', **extent).isel(time=0).elevation
 # apply decision tree
 
 import classifier_josh as classifier
-water = classifier.classify(source.data)
+water = classifier.classify(source.to_array(dim='band').data)
 
 # apply filters
 
 import filters
-water = filters.filter_by_PQ(water, pq)
-water = filters.filter_by_DSM(water, dsm)
+water = water | filters.eo_filter(source)
+#water = filters.filter_by_PQ(water, pq)
+#water = filters.filter_by_DSM(water, dsm)
 
 #-------------------------------------------------------
 
 # Visualise result
 
 import matplotlib.pyplot as plt
-for layer in [np.squeeze(source[3,:,:].data), water]:
+for layer in [source.red.data, water]:
     print np.min(layer), np.max(layer), np.mean(layer)
     plt.imshow(layer)
     plt.colorbar()
