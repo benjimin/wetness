@@ -11,6 +11,8 @@ Issues:
       (e.g. saturation, bitfield)
     - Tile edge artifacts concerning cloud buffers and cloud or terrain shadows.
     - DSM may have different natural resolution to EO source.
+      Should think about what CRS to compute in, and what resampling methods to use.
+      Also, should quantify whether earth's curvature is significant on tile scale.
     - Yet to profile memory, CPU or IO usage.
 """
 
@@ -27,7 +29,7 @@ time = ('1994-09-21','1994-09-22')
 bands = ['blue','green','red','nir','swir1','swir2']
 source = dc.load(product='ls5_nbar_albers', measurements=bands, time=time, **extent).isel(time=0)
 pq = dc.load(product='ls5_pq_albers', time=time, **extent).isel(time=0).pixelquality
-dsm = dc.load(product='dsm1sv10', **extent).isel(time=0)#.elevation
+dsm = dc.load(product='dsm1sv10', output_crs=source.crs, resolution=(-25,25), **extent).isel(time=0)
 
 #---------------------------------------------------WOFLS
 

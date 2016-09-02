@@ -56,11 +56,18 @@ def terrain_filter(dsm, nbar):
     Input: xarray DataSets
     """
 
-    print dsm.elevation.data.shape, nbar.blue.data.shape
-
     shadows, slope = terrain.shadows_and_slope(dsm, nbar.blue.time.values)
+    # dataarray, ndarray
 
-    return 0 #np.zeros_like(dsm.elevation.data)
+    print shadows
+    print
+    print slope
+
+#    return np.zeros_like(dsm.elevation.data, dtype=np.uint8)
+
+    return (slope > constants.SLOPE_THRESHOLD_DEGREES * 2).astype(np.uint8) * constants.MASKED_HIGH_SLOPE
+
+#    constants.MASKED_HIGH_SLOPE = 5
 
     return constants.MASKED_HIGH_SLOPE * (slope > constants.SLOPE_THRESHOLD_DEGREES) \
             | constants.MASKED_TERRAIN_SHADOW * (shadows == terrain.SHADED)
