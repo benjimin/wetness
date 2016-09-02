@@ -62,7 +62,7 @@ def terrain_filter(dsm, nbar):
 
     return 0 #np.zeros_like(dsm.elevation.data)
 
-    return constants.MASKED_TERRAIN_SHADOW * (slope > constants.SLOPE_THRESHOLD_DEGREES) \
+    return constants.MASKED_HIGH_SLOPE * (slope > constants.SLOPE_THRESHOLD_DEGREES) \
             | constants.MASKED_TERRAIN_SHADOW * (shadows == terrain.SHADED)
 
 

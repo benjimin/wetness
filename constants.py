@@ -15,7 +15,7 @@ WOfS (wofl) product specification:
 Implication: clear dry == 0, clear wet == 128, 129-255 disallowed.
 
 Ambiguous: are all values 0-128 valid, or are there only 8 valid
-values (and if so what is their precedence)?
+values (and if the latter, what is their precedence)?
 
 Question: can we start using this as a bit field rather than an enumeration?
 """

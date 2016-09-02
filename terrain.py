@@ -65,10 +65,14 @@ def shadows_and_slope(tile, time):
 
     Uses Sobel filter to estimate the slope gradients (assuming raster is non-rotated wrt. crs) and magnitude.
     Ignores curvature of earth (picking middle of tile for solar elevation and azimuth) calculating surface incidence.
-    Reprojects DSM to align rows with shadows (at 25m resolution).
+    Reprojects (rotates/resamples) DSM to align rows with shadows (at 25m resolution,
+    and assuming the original projection is Mercator-like i.e. preserves bearings).
     For each row, finds each threshold pixel (where the slope just turns away from the sun) and raytraces
     (i.e. using a ramp, masks the other pixels shaded by the pillar of that pixel).
     Reprojects shadow mask (and undoes border enlargement associated with the rotation).     
+
+    TODO (BL) -- profile, and explore numpy.minimum.accumulate (make-monotonic) style alternative
+                 and maybe fewer resamplings (or come up with something better still).
     """
     
     y_size, x_size = tile.elevation.shape
