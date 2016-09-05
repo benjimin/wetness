@@ -1,5 +1,5 @@
 """
-Set 
+Set individual bitflags needed for wofls.
 """
 
 import constants

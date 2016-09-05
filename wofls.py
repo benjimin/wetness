@@ -29,6 +29,7 @@ extent = {'lon':(149.0,149.5), 'lat':(-35.0, -35.5)}
 time = ('1994-09-21','1994-09-22')
 
 bands = ['blue','green','red','nir','swir1','swir2']
+
 source = dc.load(product='ls5_nbar_albers', measurements=bands, time=time, **extent).isel(time=0)
 pq = dc.load(product='ls5_pq_albers', time=time, **extent).isel(time=0).pixelquality
 dsm = dc.load(product='dsm1sv10', output_crs=source.crs, resolution=(-25,25), **extent).isel(time=0)
