@@ -1,3 +1,29 @@
+"""
+
+Literature review:
+
+
+
+Jones, A comparison of algorithms used to compute hill slope as a property of the DEM, Computers & Geosciences, 24 315 (1998).
+
+    Most ideal is the rook's case (only using nearest 4 neighbours, a 2nd order finite difference method).
+    A number of Queen's case (nearest 8 neighbours) methods are competitive, particularly the Sobel operator (Horn method).
+    Compares different weightings on the 8, or 9, and the diagonal 4.
+    Far worse is the 3-cell calculation.
+    Methodology may be biased (no simulated noise, favours short baselines).
+
+Tang & Pilesjo, Estimating slope from raster data: a test of eight different algorithms in flat, undulating and steep terrain, WIT Trans. Ecol. Envir., DOI:10.2495/RM110131 (2011)
+
+    Methodology of statistical comparisons between methods, with no truth to compare against.
+    Again, Sobel and rook's case are similar.
+
+Zhou & Liu, Analysis of errors of derived slope and aspect related to DEM data properties, Computers & Geosciences 30 369 (2004).
+
+    Absent noise, rook's appears optimal (for different slopes, aspects and resolutions).
+    In presence of noise, other algorithms (e.g. Sobel) look better.
+
+"""
+
 import numpy
 import ephem
 from scipy import ndimage
@@ -51,7 +77,7 @@ def solar_vector(p, time, crs):
 
     sun_az = sun.az-vert_az
     x = math.sin(sun_az)*math.cos(sun.alt)
-    y = math.cos(sun_az)*math.cos(sun.alt)
+    y = -math.cos(sun_az)*math.cos(sun.alt)
     z = math.sin(sun.alt)
 
     return x, y, z, sun_az, sun.alt
@@ -77,8 +103,8 @@ def shadows_and_slope(tile, time):
     
     y_size, x_size = tile.elevation.shape
 
-    xgrad = ndimage.sobel(tile.elevation, axis=1) / tile.affine.a
-    ygrad = ndimage.sobel(tile.elevation, axis=0) / tile.affine.e
+    xgrad = ndimage.sobel(tile.elevation, axis=1) / abs(8*tile.affine.a)
+    ygrad = ndimage.sobel(tile.elevation, axis=0) / abs(8*tile.affine.e)
 
     # length of the terrain normal vector
     norm_len = numpy.sqrt(xgrad*xgrad + ygrad*ygrad + 1.0)

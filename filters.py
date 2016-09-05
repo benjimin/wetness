@@ -5,8 +5,11 @@ Set
 import constants
 import numpy as np
 import scipy.ndimage 
-import terrain
+import terrain_greg as terrain
 
+def dilate(array, dilation=3):
+    """Blocky dilation e.g. for cloud and cloud/terrain shadow"""
+    return scipy.ndimage.binary_dilation(array, iterations=dilation, structure=[[1]*3]*3)
 
 def pq_filter(pq):
     """
@@ -33,14 +36,10 @@ def pq_filter(pq):
     """
 
     PQA_SATURATION_BITS = sum(2**n for n in [0,1,2,3,4,7]) # exclude thermal
-    PQA_CONTIGUITY_BITS = 0x01FF
+    #PQA_CONTIGUITY_BITS = 0x01FF
     PQA_CLOUD_BITS = 0x0C00
     PQA_CLOUD_SHADOW_BITS = 0x3000
     PQA_SEA_WATER_BIT = 0x0200
-
-    def dilate(array, dilation=3):
-        """Blocky dilation for cloud (and shadow)"""
-        return scipy.ndimage.binary_dilation(array, iterations=dilation, structure=[[1]*3]*3)
 
     masking = np.zeros(pq.shape, dtype=np.uint8) 
     masking[np.logical_not(pq & (PQA_SATURATION_BITS | 0))] = constants.MASKED_NO_CONTIGUITY
@@ -57,21 +56,9 @@ def terrain_filter(dsm, nbar):
     """
 
     shadows, slope = terrain.shadows_and_slope(dsm, nbar.blue.time.values)
-    # dataarray, ndarray
 
-    print shadows
-    print
-    print slope
-
-#    return np.zeros_like(dsm.elevation.data, dtype=np.uint8)
-
-    return (slope > constants.SLOPE_THRESHOLD_DEGREES * 2).astype(np.uint8) * constants.MASKED_HIGH_SLOPE
-
-#    constants.MASKED_HIGH_SLOPE = 5
-
-    return constants.MASKED_HIGH_SLOPE * (slope > constants.SLOPE_THRESHOLD_DEGREES) \
-            | constants.MASKED_TERRAIN_SHADOW * (shadows == terrain.SHADED)
-
+    return constants.MASKED_TERRAIN_SHADOW * dilate(shadows != terrain.LIT) \
+        | constants.MASKED_HIGH_SLOPE * (slope > constants.SLOPE_THRESHOLD_DEGREES).astype(np.uint8)
 
 
 def eo_filter(source):

@@ -18,6 +18,8 @@ Issues:
 
 import numpy as np
 
+
+
 import datacube
 dc = datacube.Datacube()
 
@@ -30,6 +32,8 @@ bands = ['blue','green','red','nir','swir1','swir2']
 source = dc.load(product='ls5_nbar_albers', measurements=bands, time=time, **extent).isel(time=0)
 pq = dc.load(product='ls5_pq_albers', time=time, **extent).isel(time=0).pixelquality
 dsm = dc.load(product='dsm1sv10', output_crs=source.crs, resolution=(-25,25), **extent).isel(time=0)
+
+
 
 #---------------------------------------------------WOFLS
 
@@ -59,4 +63,4 @@ plt.imshow(source.red.data, cmap='gray')
 plt.imshow(pretty, alpha=0.5)
 plt.show()
 
-print np.min(water.data), np.mean(water.data), np.max(water.data)
+
