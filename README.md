@@ -17,14 +17,7 @@ Water Observation Feature Layers. These consist of a single 8-bit integer band.
 Summary
 -------
 
-The summary product has two parts: a mean mosaic of the wofls, and a confidence estimate. The latter is a logistic function wrapping a linear combination (with published weights) of several inputs:
-
-0. mean mosaic of the wofls,  
-1. multi-res valley bottom flatness,  
-2. MODIS open water likelihood, hydrological geofabric,  
-3. slope,  
-4-12. hydrological geofabric (boolean vectors),  
-13. Aus Stat Geog Standard (urban boolean).
+The summary product has two parts: a mean mosaic of the wofls, and a confidence estimate. The latter is a logistic function wrapping a linear combination (with published weights) of several inputs: 0. mean mosaic of the wofls, 1. multi-res valley bottom flatness, 2. MODIS open water likelihood, hydrological geofabric, 3. slope, 4-12. hydrological geofabric (boolean vectors), 13. Aus Stat Geog Standard (urban boolean).
 
 
 Notes and ideas
@@ -43,6 +36,11 @@ It may improve performance and readability to represent the decision tree as a n
 Ideally the PQ product might be a band in the EO product (and include terrain related bitflags). 
 
 Alternative algorithms are under development elsewhere.
+
+Solar angle
+-----------
+
+Currently, this implementation may not be masking low solar angle. Such masking was not described in the WOFS paper either. Unclear whether this makes any practical difference considering that all three relevant platforms were designed to be sun-synchronous.
 
 
 Terrain
