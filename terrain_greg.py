@@ -124,4 +124,4 @@ def shadows_and_slope(tile, time):
     shadows = shadows[dr:dr + y_size, dc:dc + x_size]
     shadows = xarray.DataArray(shadows.reshape(tile.elevation.shape), coords=tile.elevation.coords)
 
-    return shadows, slope
+    return shadows, slope, sia

@@ -37,3 +37,6 @@ NO_DATA               = 1 << 0   # (dec 1)   bit 0: 1=pixel masked out due to NO
 WATER_NOT_PRESENT     = 0        # (dec 0)          All bits zero indicated valid observation, no water present
 
 SLOPE_THRESHOLD_DEGREES = 12.0           # Water detected on slopes equal or greater than this value are masked out 
+
+LOW_SOLAR_INCIDENCE_THRESHOLD_DEGREES = 30  # If the sun only grazes a hillface, observation unreliable (vegetation shadows etc)
+

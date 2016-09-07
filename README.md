@@ -37,11 +37,6 @@ Ideally the PQ product might be a band in the EO product (and include terrain re
 
 Alternative algorithms are under development elsewhere.
 
-Solar angle
------------
-
-Currently, this implementation may not be masking low solar angle. Such masking was not described in the WOFS paper either. Unclear whether this makes any practical difference considering that all three relevant platforms were designed to be sun-synchronous.
-
 
 Terrain
 -------

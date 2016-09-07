@@ -50,15 +50,18 @@ def pq_filter(pq):
 
 def terrain_filter(dsm, nbar):
     """
-    Terrain shadow masking and slope masking.
+    Terrain shadow masking, slope masking, solar incidence angle masking.
 
     Input: xarray DataSets
     """
 
-    shadows, slope = terrain.shadows_and_slope(dsm, nbar.blue.time.values)
+    shadows, slope, sia = terrain.shadows_and_slope(dsm, nbar.blue.time.values)
 
-    return constants.MASKED_TERRAIN_SHADOW * dilate(shadows != terrain.LIT) \
-        | constants.MASKED_HIGH_SLOPE * (slope > constants.SLOPE_THRESHOLD_DEGREES).astype(np.uint8)
+    shadowy = dilate(shadows != terrain.LIT) | (sia < constants.LOW_SOLAR_INCIDENCE_THRESHOLD_DEGREES)
+
+    steep = (slope > constants.SLOPE_THRESHOLD_DEGREES)
+
+    return np.uint8(constants.MASKED_TERRAIN_SHADOW) * shadowy | np.uint8(constants.MASKED_HIGH_SLOPE) * steep
 
 
 def eo_filter(source):
