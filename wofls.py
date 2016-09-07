@@ -48,7 +48,7 @@ water = classifier.classify(source.to_array(dim='band').data) \
         | filters.pq_filter(pq.data) \
         | filters.terrain_filter(dsm, source)
 
-water = water.astype(np.uint8) # this should be an assertion
+assert water.dtype == np.uint8
 
 #-------------------------------------------------------
 

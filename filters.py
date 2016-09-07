@@ -77,5 +77,5 @@ def eo_filter(source):
     nothingness = nodata_bools.all(dim='band')
     noncontiguous = nodata_bools.any(dim='band')
 
-    return (constants.NO_DATA * nothingness) | (constants.MASKED_NO_CONTIGUITY * noncontiguous)
+    return np.uint8(constants.NO_DATA) * nothingness | np.uint8(constants.MASKED_NO_CONTIGUITY) * noncontiguous
 
