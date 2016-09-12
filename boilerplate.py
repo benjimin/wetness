@@ -20,7 +20,7 @@ def wofloven(time, **extent):
 
         source = dc.load(product='ls5_nbar_albers', time=time, measurements=bands, **extent).isel(time=0)
         pq = dc.load(product='ls5_pq_albers', time=time, **extent).isel(time=0)
-        dsm = dc.load(product='dsm1sv10', output_crs=source.crs, resolution=(-25,25), **extent).isel(time=0)
+        dsm = dc.load(product='dsm1sv10', output_crs=source.crs, resampling='cubic', resolution=(-25,25), **extent).isel(time=0)
 
         water = core_func(source, pq, dsm)
 
