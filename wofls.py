@@ -16,52 +16,25 @@ Issues:
     - Yet to profile memory, CPU or IO usage.
 """
 
+
 import numpy as np
-
-
-
-import datacube
-dc = datacube.Datacube()
-
-# Load input data
-
-extent = {'lon':(149.0,149.5), 'lat':(-35.0, -35.5)}
-time = ('1994-09-21','1994-09-22')
-
-bands = ['blue','green','red','nir','swir1','swir2']
-
-source = dc.load(product='ls5_nbar_albers', measurements=bands, time=time, **extent).isel(time=0)
-pq = dc.load(product='ls5_pq_albers', time=time, **extent).isel(time=0).pixelquality
-dsm = dc.load(product='dsm1sv10', output_crs=source.crs, resolution=(-25,25), **extent).isel(time=0)
-
-
-
-#---------------------------------------------------WOFLS
-
-# apply decision tree and apply filters
-
 import classifier_josh as classifier
 import filters
+from boilerplate import wofloven as boilerplate
 
-water = classifier.classify(source.to_array(dim='band').data) \
-        | filters.eo_filter(source) \
-        | filters.pq_filter(pq.data) \
-        | filters.terrain_filter(dsm, source)
 
-assert water.dtype == np.uint8
+@boilerplate(lat=(-35.0, -35.5),
+             lon=(149.0,149.5),
+             time=('1994-09-21','1994-09-22'))
+def woffles(source, pq, dsm):
+    """Generate a Water Observation Feature Layer from NBAR, PQ and surface elevation inputs."""
 
-#-------------------------------------------------------
+    water = classifier.classify(source.to_array(dim='band').data) \
+            | filters.eo_filter(source) \
+            | filters.pq_filter(pq.pixelquality.data) \
+            | filters.terrain_filter(dsm, source)
 
-# Visualise result
+    assert water.dtype == np.uint8
 
-pretty = np.empty_like(water, dtype=np.float32)
-pretty[:,:] = np.nan # hide dry
-pretty[water.data != 0] = 1 # red masking
-pretty[water.data == 128] = 0 # blue water
-
-import matplotlib.pyplot as plt
-plt.imshow(source.red.data, cmap='gray')
-plt.imshow(pretty, alpha=0.5)
-plt.show()
-
+    return water
 
