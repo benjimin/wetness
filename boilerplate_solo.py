@@ -19,15 +19,23 @@ def wofloven(time, **extent):
         dc = datacube.Datacube()
 
 
-        source = dc.load(product='ls5_nbar_albers', time=time, measurements=bands, **extent)
+        source = dc.load(product='ls8_nbar_albers', time=time, measurements=bands, **extent)
         print len(source.time)
-        pq = dc.load(product='ls5_pq_albers', time=time, **extent)
+        print source.time.values
+        pq = dc.load(product='ls8_pq_albers', time=time, **extent)
         dsm = dc.load(product='dsm1sv10', output_crs=source.crs, resampling='cubic', resolution=(-25,25), **extent).isel(time=0)
 
         # produce results as 3D dataset
         import xarray
-        waters = xarray.concat((core_func(source.sel(time=t), pq.sel(time=t), dsm) for t in pq.time.values), pq.time)
+        ti = pq.time
+        #if len(ti) > 10:
+        #    ti = ti.isel(time=
+        waters = xarray.concat((core_func(source.sel(time=t), pq.sel(time=t), dsm) for t in ti.values), ti).to_dataset(name='water')
 
+        # save output
+        waters.attrs['crs'] = source.crs
+        waters['water']['crs'] = source.crs
+        datacube.storage.storage.write_dataset_to_netcdf(waters,"waters.nc")
 
         # visualisation
         import numpy as np
@@ -37,15 +45,18 @@ def wofloven(time, **extent):
         n1 = int(math.ceil(math.sqrt(n)))
         n2 = int(math.ceil(float(n)/n1))
         fig,axes = plt.subplots(n2,n1)
-        for ax,t in zip(axes.ravel(),pq.time.values):
-            water = waters.sel(time=t)
+        for ax,t in zip(axes.ravel() if type(axes)==np.ndarray else [axes], pq.time.values):
+            water = waters.sel(time=t).water
             background = source.sel(time=t).red.data            
             pretty = np.empty_like(water, dtype=np.float32)
             pretty[:,:] = np.nan
             pretty[water.data != 0] = 1 # red masking
             pretty[water.data == 128] = 0 # blue water
-            ax.imshow(background, cmap='gray')
-            ax.imshow(pretty, alpha=0.4, clim=(0,1))
+            a = ax.imshow(water) # for cursor data not display
+            b = ax.imshow(background, cmap='gray')
+            c = ax.imshow(pretty, alpha=0.4, clim=(0,1))
+            b.get_cursor_data = a.get_cursor_data # bitfield on mouseover
+            c.get_cursor_data = a.get_cursor_data
             ax.set_title(t)
         plt.show()
 

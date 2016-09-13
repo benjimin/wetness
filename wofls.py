@@ -23,9 +23,9 @@ import filters
 from boilerplate_solo import wofloven as boilerplate
 
 
-@boilerplate(lat=(-35.0, -35.5),
-             lon=(149.0,149.5),
-             time=('1994-09-21','1994-09-22'))
+@boilerplate(lat=(-30.0, -30.1),#-31.0),
+             lon=(147.0,147.1),##148.0),
+             time=('2016-05-01','2017-01-01'))
 def woffles(source, pq, dsm):
     """Generate a Water Observation Feature Layer from NBAR, PQ and surface elevation inputs."""
 
