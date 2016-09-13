@@ -28,13 +28,10 @@ def wofloven(time, **extent):
         # produce results as 3D dataset
         import xarray
         ti = pq.time
-        #if len(ti) > 10:
-        #    ti = ti.isel(time=
         waters = xarray.concat((core_func(source.sel(time=t), pq.sel(time=t), dsm) for t in ti.values), ti).to_dataset(name='water')
 
         # save output
         waters.attrs['crs'] = source.crs
-        waters['water']['crs'] = source.crs
         datacube.storage.storage.write_dataset_to_netcdf(waters,"waters.nc")
 
         # visualisation
