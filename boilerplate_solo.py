@@ -32,7 +32,11 @@ def wofloven(time, **extent):
 
         # save output
         waters.attrs['crs'] = source.crs
-        datacube.storage.storage.write_dataset_to_netcdf(waters,"waters.nc")
+        waters.water['crs'] = source.crs # datacube API may expect this attribute to also be set to something
+        try:
+            datacube.storage.storage.write_dataset_to_netcdf(waters,"waters.nc")
+        except RuntimeError: 
+            pass # does not overwrite if already exists
 
         # visualisation
         import numpy as np
