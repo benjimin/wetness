@@ -1,3 +1,9 @@
+bands = ['blue','green','red','nir','swir1','swir2']
+
+platforms = ['ls8', 'ls7', 'ls5']
+nbar_products, pq_products = zip(*[(p+'_nbar_albers', p+'_pq_albers') for p in platforms])
+
+
 def wofloven(time, **extent):
     """Annotator for WOFL workflow""" 
     def main(core_func):
@@ -13,16 +19,14 @@ def wofloven(time, **extent):
         # The DSM has different resolution/CRS from the EO data,
         # so entrust the API to reconstitute into a matching format.
 
-        bands = ['blue','green','red','nir','swir1','swir2']
-
         import datacube
         dc = datacube.Datacube()
 
 
-        source = dc.load(product='ls8_nbar_albers', time=time, measurements=bands, **extent)
+        source = dc.load(product=nbar_products[1], time=time, measurements=bands, **extent)
         print len(source.time)
-        print source.time.values
-        pq = dc.load(product='ls8_pq_albers', time=time, **extent)
+        pq = dc.load(product=pq_products[1], time=time, **extent)
+        print pq.time.values
         dsm = dc.load(product='dsm1sv10', output_crs=source.crs, resampling='cubic', resolution=(-25,25), **extent).isel(time=0)
 
         # produce results as 3D dataset

@@ -1,10 +1,12 @@
 """
-Produce water observation feature layers.
+Produce water observation feature layers (i.e. water extent foliation).
 
-These are the WOfS product with time extent.
+These are the WOfS product with temporal extent (i.e. multiple time values).
 Consists of wet/dry estimates and filtering flags, 
 with one-to-one correspondence to earth observation layers.
-(The other wofs product is the summaries, derived from the condensed wofl mosaic.)
+
+Not to be confused with the wofs summary products,
+which are derived from a condensed mosaic of the wofl archive.
 
 Issues:
     - previous documentation may be ambiguous or previous implementations may differ
@@ -20,12 +22,12 @@ Issues:
 import numpy as np
 import classifier_josh as classifier
 import filters
-from boilerplate_solo import wofloven as boilerplate
+from boilerplate_routine import wofloven as boilerplate
 
 
-@boilerplate(lat=(-30.0, -30.1),#-31.0),
-             lon=(147.0,147.1),##148.0),
-             time=('2016-05-01','2017-01-01'))
+@boilerplate(#lat=(-30.0, -30.1),#-31.0),
+             #lon=(147.0,147.1),##148.0),
+             time=('1990-08-01','1990-08-10'))#('2016-05-01','2017-01-01'))
 def woffles(source, pq, dsm):
     """Generate a Water Observation Feature Layer from NBAR, PQ and surface elevation inputs."""
 
