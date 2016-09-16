@@ -56,6 +56,8 @@ def wofloven(time, **extent):
             if file_path.exists():
                 raise OSError(errno.EEXIST, 'Output file already exists', str(file_path))
 
+            gw = datacube.api.GridWorkflow # shorthand
+
             source = gw.load(nbar, measurements=bands)
             pq = gw.load(pixelquality)
             dsm = gw.load(elevation, resampling='cubic') # resampling='cubic' : need bug fixed
@@ -97,33 +99,26 @@ def wofloven(time, **extent):
 
                 # only valid where EO, PQ and DSM are *all* available (and WOFL isn't yet)
                 keys = set(source_loadables) & set(pq_loadables) .difference(set(wofls_loadables))
+                # should sort spatially, consider repartitioning workload to minimise DSM reads.
                 for x,y,t in keys:
                     if (x,y) in dsm_loadables: # filter complete
+                        fn = filename_template.format(sensor=sensor[platform],
+                                                      tile_index=(x,y),
+                                                      time=pandas.to_datetime(t).strftime('%Y%m%d%H%M%S%f'))
                         yield (source_loadables[(x,y,t)],
                                pq_loadables[(x,y,t)],
                                dsm_loadables[(x,y)],
-                               filename_template.format(sensor=sensor[platform],
-                                                        tile_index=(x,y),
-                                                        time=pandas.to_datetime(t).strftime('%Y%m%d%H%M%S%f')))
+                               pathlib.Path(destination,fn))
 
 
         dc = datacube.Datacube()
 
         valid_loadables = list(woflingredients(dc.index))
-
         print len(valid_loadables)
-        print
-        print valid_loadables[1]
-        raise SystemExit
-        # should sort spatially, consider partitioning workload to minimise DSM reads.
-
-        valid_loadables = dict(valid_loadables.items()[:2]) # trim for debugging.
+        valid_loadables = valid_loadables[:2] # trim for debugging.
         
- 
-
-        print len(valid_loadables)
-
-        water = package(*valid_loadables.values()[1])
+        for task in valid_loadables:
+            package(*task)
 
 
 
