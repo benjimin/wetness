@@ -64,6 +64,13 @@ def wofloven(time, **extent):
 
             result = core_func(*(_.isel(time=0) for _ in [source, pq, dsm]))
 
+            import matplotlib.pyplot as plt
+            plt.imshow(source.isel(time=0).red.data)
+            plt.show()
+            plt.imshow(result.data)
+            plt.show()
+
+
             # Convert 2D DataArray to 3D DataSet
             result = xarray.concat([result], source.time).to_dataset(name='water')
 
