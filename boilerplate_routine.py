@@ -64,12 +64,11 @@ def wofloven(time, **extent):
 
             result = core_func(*(_.isel(time=0) for _ in [source, pq, dsm]))
 
-            import matplotlib.pyplot as plt
+            """import matplotlib.pyplot as plt
             plt.imshow(source.isel(time=0).red.data)
             plt.show()
             plt.imshow(result.data)
-            plt.show()
-
+            plt.show()"""
 
             # Convert 2D DataArray to 3D DataSet
             result = xarray.concat([result], source.time).to_dataset(name='water')
@@ -117,12 +116,14 @@ def wofloven(time, **extent):
                                dsm_loadables[(x,y)],
                                pathlib.Path(destination,fn))
 
+        #################
+        # main app logic
 
         dc = datacube.Datacube()
 
         valid_loadables = list(woflingredients(dc.index))
         print len(valid_loadables)
-        valid_loadables = valid_loadables[:2] # trim for debugging.
+        valid_loadables = valid_loadables[:4] # trim for debugging.
         
         for task in valid_loadables:
             package(*task)
