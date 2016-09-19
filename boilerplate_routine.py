@@ -111,10 +111,9 @@ def wofloven(time, **extent):
                         fn = filename_template.format(sensor=sensor[platform],
                                                       tile_index=(x,y),
                                                       time=pandas.to_datetime(t).strftime('%Y%m%d%H%M%S%f'))
-                        yield (source_loadables[(x,y,t)],
-                               pq_loadables[(x,y,t)],
-                               dsm_loadables[(x,y)],
-                               pathlib.Path(destination,fn))
+                        s,p,d = map(gw.update_tile_lineage, # fully flesh-out the metadata
+                                    [ source_loadables[(x,y,t)], pq_loadables[(x,y,t)], dsm_loadables[(x,y)] ])
+                        yield (s,p,d, pathlib.Path(destination,fn))
 
         #################
         # main app logic
@@ -123,7 +122,7 @@ def wofloven(time, **extent):
 
         valid_loadables = list(woflingredients(dc.index))
         print len(valid_loadables)
-        valid_loadables = valid_loadables[:4] # trim for debugging.
+        valid_loadables = valid_loadables[:1] # trim for debugging.
         
         for task in valid_loadables:
             package(*task)
