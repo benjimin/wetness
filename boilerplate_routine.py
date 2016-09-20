@@ -43,11 +43,12 @@ def wofloven(time, **extent):
         # The DSM has different resolution/CRS from the EO data,
         # so entrust the API to reconstitute into a matching format.
        
-        def package(nbar, pixelquality, elevation, file_path=pathlib.Path('waters.nc'), core_func=core_func):
+        def package(loadables, file_path=pathlib.Path('waters.nc'), core_func=core_func):
             """Wraps core algorithm and data IO, to be executed by worker drones without database access.
             
             Arguments:
-                - three loadables representing xarray datasets of the input data
+                - three loadables (Tile objects containing lists of datafile paths) 
+                  from which to generate input xarray datasets
                 - destination for storing output
             Returns:
                 - datacube-indexable representation of the output data
@@ -58,27 +59,58 @@ def wofloven(time, **extent):
 
             gw = datacube.api.GridWorkflow # shorthand
 
-            source = gw.load(nbar, measurements=bands)
-            pq = gw.load(pixelquality)
-            dsm = gw.load(elevation, resampling='cubic') # resampling='cubic' : need bug fixed
+            # Load data
+            source, pq, dsm = loadables
 
+            source = gw.load(source, measurements=bands)
+            pq = gw.load(pq)
+            dsm = gw.load(dsm, resampling='cubic')
+
+            # Core computation
             result = core_func(*(_.isel(time=0) for _ in [source, pq, dsm]))
-
-            """import matplotlib.pyplot as plt
-            plt.imshow(source.isel(time=0).red.data)
-            plt.show()
-            plt.imshow(result.data)
-            plt.show()"""
 
             # Convert 2D DataArray to 3D DataSet
             result = xarray.concat([result], source.time).to_dataset(name='water')
 
-            # write output
+            # Prepare spatial metadata
+
+            # Tile loadables contain a "sources" DataArray, that is, a time series 
+            # (in this case with unit length) of tuples (lest fusing may be necessary)
+            # of datacube Datasets, which should each have memoised a file path
+            # (extracted from the database) as well as an array extent and a valid 
+            # data extent. (Note both are just named "extent" inconsistently.)
+            # The latter exists as an optimisation to sometimes avoid loading large 
+            # volumes of (exclusively) nodata values. 
+
+            bounding_box = source.geobox.extent # inherit array-boundary from post-load data
+
+            def valid_data_envelope(loadables=list(loadables), crs=bounding_box.crs):
+                def data_outline(tile):
+                    parts = (ds.extent.to_crs(crs).points for ds in tile.sources.values[0])
+                    return datacube.utils.union_points(*parts)
+                footprints = [bounding_box.points] + map(data_outline, loadables)
+                overlap = reduce(datacube.utils.intersect_points, footprints)
+                return datacube.model.GeoPolygon(overlap, crs)
+
+            # Provenance tracking
+
+            allsources = [ds for tile in loadables for ds in tile.sources.values[0]]
+  
+            # Compose metadata in dict format
+
+            new_record = datacube.model.utils.make_dataset(
+                                product='fred', # TODO: 2
+                                sources=allsources,
+                                center_time='fred', # TODO: 1
+                                uri=file_path.absolute().as_uri(),
+                                extent=bounding_box,
+                                valid_data=valid_data_envelope())
+
+            # write output; TODO: 3 -- attach metadata first
             result.attrs['crs'] = source.crs
             result.water.attrs['crs'] = source.crs # datacube API may expect this attribute to also be set to something
             datacube.storage.storage.write_dataset_to_netcdf(result,file_path)
 
-            #ds = datacube.utils.make_dataset(..
             return 
 
 
@@ -113,7 +145,7 @@ def wofloven(time, **extent):
                                                       time=pandas.to_datetime(t).strftime('%Y%m%d%H%M%S%f'))
                         s,p,d = map(gw.update_tile_lineage, # fully flesh-out the metadata
                                     [ source_loadables[(x,y,t)], pq_loadables[(x,y,t)], dsm_loadables[(x,y)] ])
-                        yield (s,p,d, pathlib.Path(destination,fn))
+                        yield ((s,p,d), pathlib.Path(destination,fn))
 
         #################
         # main app logic
@@ -124,6 +156,7 @@ def wofloven(time, **extent):
         print len(valid_loadables)
         valid_loadables = valid_loadables[:1] # trim for debugging.
         
+
         for task in valid_loadables:
             package(*task)
 
