@@ -18,14 +18,20 @@ import errno
 import xarray
 import pandas
 
-bands = ['blue','green','red','nir','swir1','swir2']
-platforms = ['ls8', 'ls7', 'ls5']
+info = {'lineage': { 'algorithm': { 'name': "WOFS decision-tree water extents",
+                                    'version': 'unknown',
+                                    'repo_url': 'https://github.com/benjimin/wetness' }}}
+
+bands = ['blue','green','red','nir','swir1','swir2'] # inputs needed from EO data
+
+sensor = {'ls8':'LS8_OLI', 'ls7':'LS7_ETM', 'ls5':'LS5_TM'} # { product-prefix : filename-prefix } for platforms
 
 destination = '/short/v10/datacube/wofs'
 filename_template = '{sensor}_WATER/{tile_index[0]}_{tile_index[1]}/' + \
                     '{sensor}_WATER_3577_{tile_index[0]}_{tile_index[1]}_{time}.nc'
-                    # note 3577 refers to the (EPSG) projection of the GridSpec (inherited from NBAR).
-sensor = {'ls8':'LS8_OLI', 'ls7':'LS7_ETM', 'ls5':'LS5_TM'}
+                    # note 3577 (hard-coded) refers to the (EPSG) projection of the GridSpec (inherited from NBAR).
+
+
 
 def wofloven(time, **extent):
     """Annotator for WOFL workflow""" 
@@ -42,8 +48,11 @@ def wofloven(time, **extent):
 
         # The DSM has different resolution/CRS from the EO data,
         # so entrust the API to reconstitute into a matching format.
+
+        # Note, dealing with each temporal layer individually.
+        # (Because of the elevation mosaic, this may be inefficient.)
        
-        def package(loadables, file_path=pathlib.Path('waters.nc'), core_func=core_func):
+        def package(loadables, file_path=pathlib.Path('waters.nc'), core_func=core_func, info=info):
             """Wraps core algorithm and data IO, to be executed by worker drones without database access.
             
             Arguments:
@@ -93,22 +102,23 @@ def wofloven(time, **extent):
                 return datacube.model.GeoPolygon(overlap, crs)
 
             # Provenance tracking
-
             allsources = [ds for tile in loadables for ds in tile.sources.values[0]]
-  
-            # Compose metadata in dict format
 
-            new_record = datacube.model.utils.make_dataset(
-                                product='fred', # TODO: 2
-                                sources=allsources,
-                                center_time='fred', # TODO: 1
-                                uri=file_path.absolute().as_uri(),
-                                extent=bounding_box,
-                                valid_data=valid_data_envelope())
+            # Attach metadata in dict format
+            result['dataset'] = datacube.model.utils.make_dataset(
+                                    product='fred', # TODO
+                                    sources=allsources,
+                                    center_time=result.time.values[0],
+                                    uri=file_path.absolute().as_uri(),
+                                    extent=bounding_box,
+                                    valid_data=valid_data_envelope(),
+                                    app_info=info )
 
-            # write output; TODO: 3 -- attach metadata first
+            # Attach CRS. Note this is poorly represented in NetCDF-CF,
+            # and possibly better in datacube-API xarray model.
             result.attrs['crs'] = source.crs
-            result.water.attrs['crs'] = source.crs # datacube API may expect this attribute to also be set to something
+
+            # write output
             datacube.storage.storage.write_dataset_to_netcdf(result,file_path)
 
             return 
@@ -126,7 +136,7 @@ def wofloven(time, **extent):
             """
             gw = datacube.api.GridWorkflow(index, product='ls5_nbar_albers') # clone GridSpec from EO archive 
 
-            for platform in platforms:
+            for platform in sensor.keys():
                 source_loadables = gw.list_tiles(product=platform+'_nbar_albers', time=time, **extent)
                 pq_loadables = gw.list_tiles(product=platform+'_pq_albers', time=time, **extent)
                 dsm_loadables = gw.list_tiles(product='dsm1sv10', **extent)
