@@ -17,6 +17,7 @@ import pathlib
 import errno 
 import xarray
 import pandas
+import datacube.model.utils
 
 info = {'lineage': { 'algorithm': { 'name': "WOFS decision-tree water extents",
                                     'version': 'unknown',
@@ -24,14 +25,27 @@ info = {'lineage': { 'algorithm': { 'name': "WOFS decision-tree water extents",
 
 bands = ['blue','green','red','nir','swir1','swir2'] # inputs needed from EO data
 
-sensor = {'ls8':'LS8_OLI', 'ls7':'LS7_ETM', 'ls5':'LS5_TM'} # { product-prefix : filename-prefix } for platforms
+sensor = {'ls8':'LS8_OLI', 'ls7':'LS7_ETM', 'ls5':'LS5_TM'} # { nbar-prefix : filename-prefix } for platforms
 
 destination = '/short/v10/datacube/wofs'
 filename_template = '{sensor}_WATER/{tile_index[0]}_{tile_index[1]}/' + \
                     '{sensor}_WATER_3577_{tile_index[0]}_{tile_index[1]}_{time}.nc'
                     # note 3577 (hard-coded) refers to the (EPSG) projection of the GridSpec (inherited from NBAR).
 
-
+definition = {  'name': 'wofs_albers',
+                'managed': True,
+                'description': "Historic Flood Mapping Water Observations from Space",
+                'metadata': {   'product_type': 'wofs',
+                                'format': {'name': 'NetCDF'} },
+                'measurements': {'name': 'water',
+                                 'dtype': 'uint8',
+                                 'flags_definition': ..............................
+                            }, 
+                
+                
+                
+                                
+                              
 
 def wofloven(time, **extent):
     """Annotator for WOFL workflow""" 
@@ -105,14 +119,25 @@ def wofloven(time, **extent):
             allsources = [ds for tile in loadables for ds in tile.sources.values[0]]
 
             # Attach metadata in dict format
-            result['dataset'] = datacube.model.utils.make_dataset(
-                                    product='fred', # TODO
-                                    sources=allsources,
-                                    center_time=result.time.values[0],
-                                    uri=file_path.absolute().as_uri(),
-                                    extent=bounding_box,
-                                    valid_data=valid_data_envelope(),
-                                    app_info=info )
+            
+            new_record = datacube.model.utils.make_dataset(
+                                product='WOfS_decision-tree', #TODO: DatasetType object
+                                sources=allsources,
+                                center_time=result.time.values[0],
+                                uri=file_path.absolute().as_uri(),
+                                extent=bounding_box,
+                                valid_data=valid_data_envelope(),
+                                app_info=info )
+
+            print new_record
+
+            print
+            print
+            print
+            
+            print datacube.model.utils.datasets_to_doc(xarray.concat([new_record], result.time))
+
+            raise SystemExit
 
             # Attach CRS. Note this is poorly represented in NetCDF-CF,
             # and possibly better in datacube-API xarray model.
