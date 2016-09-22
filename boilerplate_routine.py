@@ -17,7 +17,9 @@ import pathlib
 import errno 
 import xarray
 import pandas
+import numpy as np
 import datacube.model.utils
+import yaml
 
 info = {'lineage': { 'algorithm': { 'name': "WOFS decision-tree water extents",
                                     'version': 'unknown',
@@ -32,20 +34,80 @@ filename_template = '{sensor}_WATER/{tile_index[0]}_{tile_index[1]}/' + \
                     '{sensor}_WATER_3577_{tile_index[0]}_{tile_index[1]}_{time}.nc'
                     # note 3577 (hard-coded) refers to the (EPSG) projection of the GridSpec (inherited from NBAR).
 
-definition = {  'name': 'wofs_albers',
-                'managed': True,
-                'description': "Historic Flood Mapping Water Observations from Space",
-                'metadata': {   'product_type': 'wofs',
-                                'format': {'name': 'NetCDF'} },
-                'measurements': {'name': 'water',
-                                 'dtype': 'uint8',
-                                 'flags_definition': ..............................
-                            }, 
-                
-                
-                
-                                
-                              
+definition = """
+name: wofs_albers
+description: Historic Flood Mapping Water Observations from Space
+managed: True
+metadata_type: eo
+metadata:               # issue: eo may expect a single platform/sensor declaration
+  product_type: wofs
+  format: 
+    name: NetCDF
+storage:                # this section should be inherited from nbar, or otherwise should determine the gridworkflow/gridspec
+    crs: EPSG:3577
+    resolution:
+        x: 25
+        y: -25
+    tile_size:
+        x: 100000.0
+        y: 100000.0
+    driver: NetCDF CF
+    dimension_order: [time, y, x]
+    chunking:
+        x: 200
+        y: 200
+        time: 1   
+measurements:
+  - name: water
+    dtype: uint8
+    flags_definition:
+      - name: nodata
+        bits: 0                
+        description: Missing all necessary earth-observation bands
+      - name: noncontiguous
+        bits: 1
+        description: Missing some necessary earth-observation bands
+      - name: sea
+        bits: 2
+        description: Marine open-water rather than terrestrial area
+      - name: terrain_shadow
+        bits: 3
+        description: Terrain shadow or low solar angle
+      - name: high_slope
+        bits: 4
+        description: Steep terrain
+      - name: cloud_shadow
+        bits: 5
+        description: Cloud shadow
+      - name: cloud
+        bits: 6
+        description: Obscured by cloud
+      - name: wet
+        bits: 7
+        description: Raw classification before masking
+      - name: clear
+        bits: [0,1,2,3,4,5,6]
+        values: 
+            0: True
+        description: Clear observation
+      - name: clear_water
+        bits: [0,1,2,3,4,5,6,7]
+        values: 
+            128: True
+        description: Clear observation of water
+      - name: clear_dry
+        bits: [0,1,2,3,4,5,6,7]
+        values: 
+            0: True
+        description: Clear observation of absence of water
+      - name: final
+        bits: [0,1,2,3,4,5,6,7]
+        values: 
+            128: water
+            0: dry
+        description: Classification result with unclear observations masked out
+""" # end of product definition
+
 
 def wofloven(time, **extent):
     """Annotator for WOFL workflow""" 
@@ -65,7 +127,7 @@ def wofloven(time, **extent):
 
         # Note, dealing with each temporal layer individually.
         # (Because of the elevation mosaic, this may be inefficient.)
-       
+
         def package(loadables, file_path=pathlib.Path('waters.nc'), core_func=core_func, info=info):
             """Wraps core algorithm and data IO, to be executed by worker drones without database access.
             
@@ -118,35 +180,28 @@ def wofloven(time, **extent):
             # Provenance tracking
             allsources = [ds for tile in loadables for ds in tile.sources.values[0]]
 
-            # Attach metadata in dict format
-            
+            # Attach metadata (as an xarray/datavariable of datacube.dataset yamls)
             new_record = datacube.model.utils.make_dataset(
-                                product='WOfS_decision-tree', #TODO: DatasetType object
+                                product=product,
                                 sources=allsources,
                                 center_time=result.time.values[0],
                                 uri=file_path.absolute().as_uri(),
                                 extent=bounding_box,
                                 valid_data=valid_data_envelope(),
                                 app_info=info )
+            def xarrayify(item, t=result.time):
+                return xarray.DataArray.from_series( pandas.Series([item], t.to_series()) )
+            docarray = datacube.model.utils.datasets_to_doc(xarrayify(new_record))
+            #result['dataset'] = docarray
 
-            print new_record
-
-            print
-            print
-            print
-            
-            print datacube.model.utils.datasets_to_doc(xarray.concat([new_record], result.time))
-
-            raise SystemExit
-
-            # Attach CRS. Note this is poorly represented in NetCDF-CF,
-            # and possibly better in datacube-API xarray model.
+            # Attach CRS. Note this is poorly represented in NetCDF-CF
+            # (and unrecognised in xarray), likely improved by datacube-API model.
             result.attrs['crs'] = source.crs
 
             # write output
             datacube.storage.storage.write_dataset_to_netcdf(result,file_path)
 
-            return 
+            return new_record
 
 
 
@@ -165,7 +220,7 @@ def wofloven(time, **extent):
                 source_loadables = gw.list_tiles(product=platform+'_nbar_albers', time=time, **extent)
                 pq_loadables = gw.list_tiles(product=platform+'_pq_albers', time=time, **extent)
                 dsm_loadables = gw.list_tiles(product='dsm1sv10', **extent)
-                wofls_loadables = {}
+                wofls_loadables = gw.list_tiles(product=product.name, time=time, **extent)
 
                 assert len(set(t for (x,y,t) in dsm_loadables)) == 1 # assume mosaic won't require extra fusing
                 dsm_loadables = {(x,y):val for (x,y,t),val in dsm_loadables.items()} # make mosaic atemporal
@@ -182,19 +237,28 @@ def wofloven(time, **extent):
                                     [ source_loadables[(x,y,t)], pq_loadables[(x,y,t)], dsm_loadables[(x,y)] ])
                         yield ((s,p,d), pathlib.Path(destination,fn))
 
+
         #################
         # main app logic
 
+
         dc = datacube.Datacube()
 
+        # convert product definition document to DatasetType object
+        _definition = yaml.load(definition)
+        metadata_type = dc.index.metadata_types.get_by_name(_definition['metadata_type'])
+        product = datacube.model.DatasetType(metadata_type, _definition)     
+        
+        print product.name
         valid_loadables = list(woflingredients(dc.index))
         print len(valid_loadables)
-        valid_loadables = valid_loadables[:1] # trim for debugging.
+        valid_loadables = valid_loadables[:2] # trim for debugging.
         
 
         for task in valid_loadables:
-            package(*task)
-
+            ds = package(*task)
+            print type(ds)
+            
 
 
     return main
