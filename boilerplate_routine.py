@@ -252,24 +252,26 @@ def wofloven(time, **extent):
         # convert product definition document to DatasetType object
         _definition = yaml.load(definition)
         metadata_type = dc.index.metadata_types.get_by_name(_definition['metadata_type'])
-
         product = datacube.model.DatasetType(metadata_type, _definition)     
-        
         product = dc.index.products.add(product) # idempotently ensure database knows this product
+                                                 # and return version updated with database keys
 
-        valid_loadables = list(woflingredients(dc.index)) # find work to do
-
-        print len(valid_loadables)
-        valid_loadables = valid_loadables[:2] # trim for debugging.     
-
-        for task in valid_loadables:
-            print ".",
-            ds = package(*task) # do work
-            dc.index.datasets.add(ds) # index completed work
-
-        print "Done."
+        simplistic_app(dc.index, woflingredients, package) 
 
     return main
 
+def simplistic_app(index, taskmaker, taskdoer):
+    """Simplistic app (for debugging) just creates and indexes some of the desired tiles."""
+    valid_loadables = list(taskmaker(index)) # find work to do
+    print len(valid_loadables)
+    valid_loadables = valid_loadables[:2] # trim for debugging.     
+    for task in valid_loadables:
+        print ".",
+        ds = taskdoer(*task) # do work
+        print ds.local_path
+        index.datasets.add(ds) # index completed work
+    print "Done."
 
+def andrew_app(index, taskmaker, taskdoer):
+    pass
 
