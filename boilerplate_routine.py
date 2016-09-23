@@ -60,51 +60,53 @@ storage:                # this section should be inherited from nbar, or otherwi
 measurements:
   - name: water
     dtype: uint8
+    nodata: 1
+    units: '1'
     flags_definition:
-      - name: nodata
-        bits: 0                
-        description: Missing all necessary earth-observation bands
-      - name: noncontiguous
-        bits: 1
-        description: Missing some necessary earth-observation bands
-      - name: sea
-        bits: 2
-        description: Marine open-water rather than terrestrial area
-      - name: terrain_shadow
-        bits: 3
-        description: Terrain shadow or low solar angle
-      - name: high_slope
-        bits: 4
-        description: Steep terrain
-      - name: cloud_shadow
-        bits: 5
-        description: Cloud shadow
-      - name: cloud
-        bits: 6
-        description: Obscured by cloud
-      - name: wet
-        bits: 7
-        description: Raw classification before masking
-      - name: clear
-        bits: [0,1,2,3,4,5,6]
-        values: 
-            0: True
-        description: Clear observation
-      - name: clear_water
+#      nodata:
+#        bits: 0       
+#        description: Missing all necessary earth-observation bands
+#      noncontiguous:
+#        bits: 1
+#        description: Missing some necessary earth-observation bands
+#      sea:
+#        bits: 2
+#        description: Marine open-water rather than terrestrial area
+#      terrain_shadow:
+#        bits: 3
+#        description: Terrain shadow or low solar angle
+#      high_slope:
+#        bits: 4
+#        description: Steep terrain
+#      cloud_shadow:
+#        bits: 5
+#        description: Cloud shadow
+#      cloud:
+#        bits: 6
+#        description: Obscured by cloud
+#      wet:
+#        bits: 7
+#        description: Raw classification before masking
+#      clear:
+#        bits: [0,1,2,3,4,5,6]
+#        values: 
+#            0: True
+#        description: Clear observation
+#      clear_water:
+#        bits: [0,1,2,3,4,5,6,7]
+#        values: 
+#            128: True
+#        description: Clear observation of water
+#      clear_dry:
+#        bits: [0,1,2,3,4,5,6,7]
+#        values: 
+#            0: True
+#        description: Clear observation of absence of water
+      type:
         bits: [0,1,2,3,4,5,6,7]
         values: 
-            128: True
-        description: Clear observation of water
-      - name: clear_dry
-        bits: [0,1,2,3,4,5,6,7]
-        values: 
-            0: True
-        description: Clear observation of absence of water
-      - name: final
-        bits: [0,1,2,3,4,5,6,7]
-        values: 
-            128: water
-            0: dry
+            128: clear_wet
+            0: clear_dry
         description: Classification result with unclear observations masked out
 """ # end of product definition
 
@@ -138,7 +140,7 @@ def wofloven(time, **extent):
             Returns:
                 - datacube-indexable representation of the output data
             """
-
+            print product
             if file_path.exists():
                 raise OSError(errno.EEXIST, 'Output file already exists', str(file_path))
 
@@ -179,7 +181,7 @@ def wofloven(time, **extent):
 
             # Provenance tracking
             allsources = [ds for tile in loadables for ds in tile.sources.values[0]]
-
+            print product
             # Attach metadata (as an xarray/datavariable of datacube.dataset yamls)
             new_record = datacube.model.utils.make_dataset(
                                 product=product,
@@ -191,8 +193,10 @@ def wofloven(time, **extent):
                                 app_info=info )
             def xarrayify(item, t=result.time):
                 return xarray.DataArray.from_series( pandas.Series([item], t.to_series()) )
+                #return xarray.DataArray(np.array([item], coords={'time': t.values}))#, ['time']))
             docarray = datacube.model.utils.datasets_to_doc(xarrayify(new_record))
-            #result['dataset'] = docarray
+            docarray['units'] = '1'
+            result['dataset'] = docarray
 
             # Attach CRS. Note this is poorly represented in NetCDF-CF
             # (and unrecognised in xarray), likely improved by datacube-API model.
@@ -216,11 +220,12 @@ def wofloven(time, **extent):
             """
             gw = datacube.api.GridWorkflow(index, product='ls5_nbar_albers') # clone GridSpec from EO archive 
 
+            wofls_loadables = gw.list_tiles(product=product.name, time=time, **extent)
+
             for platform in sensor.keys():
                 source_loadables = gw.list_tiles(product=platform+'_nbar_albers', time=time, **extent)
                 pq_loadables = gw.list_tiles(product=platform+'_pq_albers', time=time, **extent)
-                dsm_loadables = gw.list_tiles(product='dsm1sv10', **extent)
-                wofls_loadables = gw.list_tiles(product=product.name, time=time, **extent)
+                dsm_loadables = gw.list_tiles(product='dsm1sv10', **extent)                
 
                 assert len(set(t for (x,y,t) in dsm_loadables)) == 1 # assume mosaic won't require extra fusing
                 dsm_loadables = {(x,y):val for (x,y,t),val in dsm_loadables.items()} # make mosaic atemporal
@@ -247,19 +252,22 @@ def wofloven(time, **extent):
         # convert product definition document to DatasetType object
         _definition = yaml.load(definition)
         metadata_type = dc.index.metadata_types.get_by_name(_definition['metadata_type'])
+
         product = datacube.model.DatasetType(metadata_type, _definition)     
         
-        print product.name
-        valid_loadables = list(woflingredients(dc.index))
+        product = dc.index.products.add(product) # idempotently ensure database knows this product
+
+        valid_loadables = list(woflingredients(dc.index)) # find work to do
+
         print len(valid_loadables)
-        valid_loadables = valid_loadables[:2] # trim for debugging.
-        
+        valid_loadables = valid_loadables[:2] # trim for debugging.     
 
         for task in valid_loadables:
-            ds = package(*task)
-            print type(ds)
-            
+            print ".",
+            ds = package(*task) # do work
+            dc.index.datasets.add(ds) # index completed work
 
+        print "Done."
 
     return main
 
