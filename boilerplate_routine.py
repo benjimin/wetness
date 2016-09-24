@@ -140,7 +140,6 @@ def wofloven(time, **extent):
             Returns:
                 - datacube-indexable representation of the output data
             """
-            print product
             if file_path.exists():
                 raise OSError(errno.EEXIST, 'Output file already exists', str(file_path))
 
@@ -148,7 +147,14 @@ def wofloven(time, **extent):
 
             # Load data
             source, pq, dsm = loadables
-
+            
+            # prepare to harvest some metadata from the EO input
+            def harvest(what, datasets=[ds for time in source.sources.values for ds in time]):
+                values = [ds.metadata_doc[what] for ds in datasets]
+                assert all(value==values[0] for value in values)
+                return values[0]
+            
+            # load the data from disk
             source = gw.load(source, measurements=bands)
             pq = gw.load(pq)
             dsm = gw.load(dsm, resampling='cubic')
@@ -181,7 +187,7 @@ def wofloven(time, **extent):
 
             # Provenance tracking
             allsources = [ds for tile in loadables for ds in tile.sources.values[0]]
-            print product
+
             # Attach metadata (as an xarray/datavariable of datacube.dataset yamls)
             new_record = datacube.model.utils.make_dataset(
                                 product=product,
@@ -190,12 +196,14 @@ def wofloven(time, **extent):
                                 uri=file_path.absolute().as_uri(),
                                 extent=bounding_box,
                                 valid_data=valid_data_envelope(),
-                                app_info=info )
+                                app_info=info )   
+            new_record.metadata_doc['platform'] = harvest('platform') # optional,
+            new_record.metadata_doc['instrument'] = harvest('instrument') # for future convenience only
             def xarrayify(item, t=result.time):
                 return xarray.DataArray.from_series( pandas.Series([item], t.to_series()) )
                 #return xarray.DataArray(np.array([item], coords={'time': t.values}))#, ['time']))
             docarray = datacube.model.utils.datasets_to_doc(xarrayify(new_record))
-            docarray['units'] = '1'
+            docarray['units'] = '1' # datavariable holding metadata must still comply with convention
             result['dataset'] = docarray
 
             # Attach CRS. Note this is poorly represented in NetCDF-CF
@@ -268,10 +276,33 @@ def simplistic_app(index, taskmaker, taskdoer):
     for task in valid_loadables:
         print ".",
         ds = taskdoer(*task) # do work
-        print ds.local_path
         index.datasets.add(ds) # index completed work
     print "Done."
 
 def andrew_app(index, taskmaker, taskdoer):
+    """ User interface for compatibility with other apps (e.g. fc, ndvi) 
+    
+    To process at scale, must:
+        1. query database and generate tasks
+        2. have tasks executed (by workers) and record each into database
+    Because the datacube API obstructs the use of SQL and cursors,
+    the first step becomes so python memory intensive that it must be done
+    separately. (Either way, due to limitations of the scheduling 
+    infrastructure the tasks cannot all be fed in at one time.)
+    Both steps are done by the same code, using command line arguments
+    to distinguish the two modes.
+    
+    First,
+        --save-tasks --year XXXX
+        
+    Afterward (and with workers at the ready),
+        --backlog 18 --executor multiproc 6
+        
+    Generally the second step is managed by scripts which request
+    compute resources and then set up the infrastructure (worker processes and
+    scheduler) in readiness.
+    """
+    
+    
     pass
 
