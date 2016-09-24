@@ -263,7 +263,7 @@ def wofloven(time, **extent):
         product = dc.index.products.add(product) # idempotently ensure database knows this product
                                                  # and return version updated with database keys
 
-        simplistic_app(dc.index, woflingredients, package) 
+        andrew_app(dc.index, woflingredients, package) 
 
     return main
 
@@ -312,7 +312,7 @@ def andrew_app(index, taskmaker, taskdoer):
     
     
     
-    from __future__ import absolute_import, print_function
+    #from __future__ import absolute_import, print_function
 
     import errno
     import functools
@@ -333,7 +333,6 @@ def andrew_app(index, taskmaker, taskdoer):
     from datacube.ui import click as ui
     from datacube.ui.task_app import task_app, task_app_options, check_existing_files
     from datacube.utils import intersect_points, union_points, unsqueeze_dataset
-    from fc.fractional_cover import fractional_cover
         
     _LOG = logging.getLogger('agdc-wofs')
     
@@ -388,6 +387,7 @@ def andrew_app(index, taskmaker, taskdoer):
                 executor.release(result)
     
         click.echo('%d successful, %d failed' % (successful, failed))
+    app()
     
 
 
