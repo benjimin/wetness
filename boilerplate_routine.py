@@ -254,7 +254,6 @@ def wofloven(time, **extent):
         #################
         # main app logic
 
-
         dc = datacube.Datacube()
 
         # convert product definition document to DatasetType object
@@ -283,13 +282,13 @@ def andrew_app(index, taskmaker, taskdoer):
     """ User interface for compatibility with other apps (e.g. fc, ndvi) 
     
     To process at scale, must:
-        1. query database and generate tasks
-        2. have tasks executed (by workers) and record each into database
+        1. query database and generate tasks,
+        2. have tasks executed (by workers) and record each into database.
     Because the datacube API obstructs the use of SQL and cursors,
     the first step becomes so python memory intensive that it must be done
     separately. (Either way, due to limitations of the scheduling 
-    infrastructure the tasks cannot all be fed in at one time.)
-    Both steps are done by the same code, using command line arguments
+    infrastructure the tasks should not all be enqueued simultaneously.)
+    Both steps are done by the same python script, using command line arguments
     to distinguish the two modes.
     
     First,
@@ -298,11 +297,97 @@ def andrew_app(index, taskmaker, taskdoer):
     Afterward (and with workers at the ready),
         --backlog 18 --executor multiproc 6
         
-    Generally the second step is managed by scripts which request
-    compute resources and then set up the infrastructure (worker processes and
+    Typically the second step is invoked by shell scripts which also request
+    compute resources and set up the infrastructure (worker processes and
     scheduler) in readiness.
     """
+
+    class wrapper():
+        def __init__(self, thing):
+            self.values = [thing]
+    make_config=lambda index,config,**query: config
+    make_tasks=lambda index,*a,**kw: taskmaker(index)
+    do_task=lambda config,task: wrapper(taskdoer(*task))
     
     
-    pass
+    
+    
+    from __future__ import absolute_import, print_function
+
+    import errno
+    import functools
+    import itertools
+    import logging
+    import os
+    from copy import deepcopy
+    from datetime import datetime
+    
+    import click
+    from pandas import to_datetime
+    from pathlib import Path
+    
+    from datacube.api.grid_workflow import GridWorkflow
+    from datacube.model import DatasetType, GeoPolygon, Range
+    from datacube.model.utils import make_dataset, xr_apply, datasets_to_doc
+    from datacube.storage.storage import write_dataset_to_netcdf
+    from datacube.ui import click as ui
+    from datacube.ui.task_app import task_app, task_app_options, check_existing_files
+    from datacube.utils import intersect_points, union_points, unsqueeze_dataset
+    from fc.fractional_cover import fractional_cover
+        
+    _LOG = logging.getLogger('agdc-wofs')
+    
+    APP_NAME = 'wofs'
+    @click.command(name=APP_NAME)
+    @ui.pass_index(app_name=APP_NAME)
+    @click.option('--dry-run', is_flag=True, default=False, help='Check if output files already exist')
+    @click.option('--year', type=click.IntRange(1960, 2060), help='Limit the process to a particular year')
+    @click.option('--backlog', type=click.IntRange(1, 100000), default=3200, help='Number of tasks to queue at the start')
+    @task_app_options
+    @task_app(make_config=make_config, make_tasks=make_tasks)
+    def app(index, config, tasks, executor, dry_run, backlog, *args, **kwargs):
+        click.echo('Starting Fractional Cover processing...')
+    
+        if dry_run:
+            check_existing_files((task['filename'] for task in tasks))
+            return 0
+    
+        results = []
+        tasks_backlog = itertools.islice(tasks, backlog)
+        for task in tasks_backlog:
+            _LOG.info('Running task: %s', task['tile_index'])
+            results.append(executor.submit(do_fc_task, config=config, task=task))
+    
+        click.echo('Backlog queue filled, waiting for first result...')
+    
+        successful = failed = 0
+        while results:
+            result, results = executor.next_completed(results, None)
+    
+            # submit a new task to replace the one we just finished
+            task = next(tasks, None)
+            if task:
+                _LOG.info('Running task: %s', task['tile_index'])
+                results.append(executor.submit(do_task, config=config, task=task))
+    
+            # Process the result
+            try:
+                datasets = executor.result(result)
+                for dataset in datasets.values:
+                    index.datasets.add(dataset, skip_sources=True)
+                    _LOG.info('Dataset added')
+                #dataset = executor.result(result)
+                #index.datasets.add(dataset, skip_sources=True)
+                successful += 1
+            except Exception as err:  # pylint: disable=broad-except
+                _LOG.exception('Task failed: %s', err)
+                failed += 1
+                continue
+            finally:
+                # Release the task to free memory so there is no leak in executor/scheduler/worker process
+                executor.release(result)
+    
+        click.echo('%d successful, %d failed' % (successful, failed))
+    
+
 
