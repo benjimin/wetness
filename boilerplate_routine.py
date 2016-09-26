@@ -39,12 +39,12 @@ name: wofs_albers
 description: Historic Flood Mapping Water Observations from Space
 managed: True
 metadata_type: eo
-metadata:               # issue: eo may expect a single platform/sensor declaration
+metadata:
   product_type: wofs
   format: 
     name: NetCDF
-storage:                # this section should be inherited from nbar, or otherwise should determine the gridworkflow/gridspec
-    crs: EPSG:3577
+storage:                # redundancy/unmaintainability: this section should be
+    crs: EPSG:3577      # inherited from nbar, or alternatively should determine the gridworkflow/gridspec
     resolution:
         x: 25
         y: -25
@@ -63,45 +63,6 @@ measurements:
     nodata: 1
     units: '1'
     flags_definition:
-#      nodata:
-#        bits: 0       
-#        description: Missing all necessary earth-observation bands
-#      noncontiguous:
-#        bits: 1
-#        description: Missing some necessary earth-observation bands
-#      sea:
-#        bits: 2
-#        description: Marine open-water rather than terrestrial area
-#      terrain_shadow:
-#        bits: 3
-#        description: Terrain shadow or low solar angle
-#      high_slope:
-#        bits: 4
-#        description: Steep terrain
-#      cloud_shadow:
-#        bits: 5
-#        description: Cloud shadow
-#      cloud:
-#        bits: 6
-#        description: Obscured by cloud
-#      wet:
-#        bits: 7
-#        description: Raw classification before masking
-#      clear:
-#        bits: [0,1,2,3,4,5,6]
-#        values: 
-#            0: True
-#        description: Clear observation
-#      clear_water:
-#        bits: [0,1,2,3,4,5,6,7]
-#        values: 
-#            128: True
-#        description: Clear observation of water
-#      clear_dry:
-#        bits: [0,1,2,3,4,5,6,7]
-#        values: 
-#            0: True
-#        description: Clear observation of absence of water
       type:
         bits: [0,1,2,3,4,5,6,7]
         values: 
@@ -115,7 +76,6 @@ def wofloven(time, **extent):
     """Annotator for WOFL workflow""" 
     def main(core_func):
         """Continental-scale WOFL-specific machinery"""
-        print core_func.__name__
 
         # The WOFS storage format will be chosen to mirror the EO archive.
 
@@ -263,7 +223,9 @@ def wofloven(time, **extent):
         product = dc.index.products.add(product) # idempotently ensure database knows this product
                                                  # and return version updated with database keys
 
-        andrew_app(dc.index, woflingredients, package) 
+        #simplistic_app(dc.index, woflingredients, package) 
+        #andrew_app(dc.index, woflingredients, package)
+        another_app(dc.index, woflingredients, package, core_func.__name__)
 
     return main
 
@@ -277,6 +239,68 @@ def simplistic_app(index, taskmaker, taskdoer):
         ds = taskdoer(*task) # do work
         index.datasets.add(ds) # index completed work
     print "Done."
+
+def another_app(index, taskmaker, taskdoer, name="application"):
+    """ Compatibility interface """
+    
+    import click
+    import pickle
+    import itertools
+    def unpickle_stream(f):
+        s = pickle.Unpickler(f)
+        while True:
+            try:
+                yield s.load()
+            except EOFError:
+                raise StopIteration                
+    def map_orderless(core,tasks,queue=50):
+        tasks = (i for i in tasks) # ensure input is a generator
+        import distributed # slow
+        ex = distributed.Client() # executor        
+        # pre-fill queue
+        results = [ex.submit(core,*t) for t in itertools.islice(tasks, queue)]
+               
+        while results:
+            result = next(distributed.as_completed(results)) # block
+            results.remove(result)                  # pop completed
+    
+            task = next(tasks, None)
+            if task is not None:
+                results.append(ex.submit(core,*task)) # queue another
+            
+            yield result.result() # unwrap future
+    
+    @click.group(name=name)
+    def cli():
+        pass
+    
+    @cli.command(help="Pre-query tiles for one calendar year.")
+    @click.argument('year', type=click.INT)
+    @click.argument('taskfile', type=click.File('w'))
+    def prepare(year, taskfile):
+        t = str(year)+'-01-01', str(year+1)+'-01-01'
+        print "Querying", t[0], "to", t[1]
+        stream = pickle.Pickler(taskfile)
+        i = 0
+        for task in taskmaker(index, time=t):
+            stream.dump(task)
+            i += 1
+        print i, "tasks prepared"
+        
+       
+    @cli.command(help="Read pre-queried tiles and distribute computation.")
+    @click.option('--backlog', default=10, help="Maximum queue length")
+    @click.argument('taskfile', type=click.File('r'))
+    def orchestrate(backlog, taskfile):
+        tasks = unpickle_stream(taskfile)
+        for i,ds in enumerate(map_orderless(taskdoer, tasks, queue=backlog)):
+            print i
+            index.datasets.add(ds, skip_sources=True) # index completed work
+        print "Done"
+        
+    cli()
+    
+    
 
 def andrew_app(index, taskmaker, taskdoer):
     """ User interface for compatibility with other apps (e.g. fc, ndvi) 
@@ -341,7 +365,7 @@ def andrew_app(index, taskmaker, taskdoer):
     @ui.pass_index(app_name=APP_NAME)
     @click.option('--dry-run', is_flag=True, default=False, help='Check if output files already exist')
     @click.option('--year', type=click.IntRange(1960, 2060), help='Limit the process to a particular year')
-    @click.option('--backlog', type=click.IntRange(1, 100000), default=3200, help='Number of tasks to queue at the start')
+    @click.option('--backlog', type=click.IntRange(1, 100000), default=10, help='Number of tasks to queue at the start')
     @task_app_options
     @task_app(make_config=make_config, make_tasks=make_tasks)
     def app(index, config, tasks, executor, dry_run, backlog, *args, **kwargs):
