@@ -125,6 +125,8 @@ def wofloven(time, **extent):
             # Convert 2D DataArray to 3D DataSet
             result = xarray.concat([result], source.time).to_dataset(name='water')
             result.water.attrs['nodata'] = 1 # lest it default to zero (i.e. clear dry)
+            result.water.attrs['units'] = '1' # unitless convention
+            
 
             # Prepare spatial metadata
 
