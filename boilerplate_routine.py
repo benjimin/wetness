@@ -163,8 +163,7 @@ def wofloven(time, **extent):
             new_record.metadata_doc['platform'] = harvest('platform') # optional,
             new_record.metadata_doc['instrument'] = harvest('instrument') # for future convenience only
             def xarrayify(item, t=result.time):
-                return xarray.DataArray.from_series( pandas.Series([item], t.to_series()) )
-                #return xarray.DataArray(np.array([item], coords={'time': t.values}))#, ['time']))
+                return xarray.DataArray([item],coords={'time':t})
             docarray = datacube.model.utils.datasets_to_doc(xarrayify(new_record))
             docarray.attrs['units'] = '1' # datavariable holding metadata must still comply with convention
             result['dataset'] = docarray
@@ -226,9 +225,9 @@ def wofloven(time, **extent):
         product = dc.index.products.add(product) # idempotently ensure database knows this product
                                                  # and return version updated with database keys
 
-        #simplistic_app(dc.index, woflingredients, package) 
+        simplistic_app(dc.index, woflingredients, package) 
         #andrew_app(dc.index, woflingredients, package)
-        another_app(dc.index, woflingredients, package, core_func.__name__)
+        #another_app(dc.index, woflingredients, package, core_func.__name__)
 
     return main
 
