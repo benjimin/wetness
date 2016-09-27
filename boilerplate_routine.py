@@ -280,7 +280,8 @@ def another_app(index, taskmaker, taskdoer, name="application"):
     @cli.command(help="Pre-query tiles for one calendar year.")
     @click.argument('year', type=click.INT)
     @click.argument('taskfile', type=click.File('w'))
-    def prepare(year, taskfile):
+    @click.option('--max', default=0, help="Limit number of tasks")
+    def prepare(year, taskfile, max):
         t = str(year)+'-01-01', str(year+1)+'-01-01'
         print "Querying", t[0], "to", t[1]
         stream = pickle.Pickler(taskfile)
@@ -288,6 +289,8 @@ def another_app(index, taskmaker, taskdoer, name="application"):
         for task in taskmaker(index, time=t):
             stream.dump(task)
             i += 1
+            if i==max:
+                break
         print i, "tasks prepared"
         
        
