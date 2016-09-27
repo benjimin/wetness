@@ -124,6 +124,7 @@ def wofloven(time, **extent):
 
             # Convert 2D DataArray to 3D DataSet
             result = xarray.concat([result], source.time).to_dataset(name='water')
+            result.water.attrs['nodata'] = 1 # lest it default to zero (i.e. clear dry)
 
             # Prepare spatial metadata
 
@@ -163,7 +164,7 @@ def wofloven(time, **extent):
                 return xarray.DataArray.from_series( pandas.Series([item], t.to_series()) )
                 #return xarray.DataArray(np.array([item], coords={'time': t.values}))#, ['time']))
             docarray = datacube.model.utils.datasets_to_doc(xarrayify(new_record))
-            docarray['units'] = '1' # datavariable holding metadata must still comply with convention
+            docarray.attrs['units'] = '1' # datavariable holding metadata must still comply with convention
             result['dataset'] = docarray
 
             # Attach CRS. Note this is poorly represented in NetCDF-CF
