@@ -26,7 +26,7 @@ sensor = {'ls8':'LS8_OLI', 'ls7':'LS7_ETM', 'ls5':'LS5_TM'} # { nbar-prefix : fi
 destination = '/short/v10/datacube/wofs'
 filename_template = '{sensor}_WATER/{tile_index[0]}_{tile_index[1]}/' + \
                     '{sensor}_WATER_3577_{tile_index[0]}_{tile_index[1]}_{time}.nc'
-                    # note 3577 (hard-coded) refers to the (EPSG) projection of the GridSpec (inherited from NBAR).
+                    # note 3577 refers to the CRS (EPSG) of the definition below
 
 definition = """
 name: wofs_albers
@@ -37,8 +37,8 @@ metadata:
   product_type: wofs
   format: 
     name: NetCDF
-storage:                # redundancy/unmaintainability: this section should be
-    crs: EPSG:3577      # inherited from nbar, or alternatively should determine the gridworkflow/gridspec
+storage:
+    crs: EPSG:3577
     resolution:
         x: 25
         y: -25
