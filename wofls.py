@@ -22,7 +22,7 @@ Issues:
 import numpy as np
 import classifier_josh as classifier
 import filters
-from boilerplate_routine import wofloven as boilerplate
+from boilerplate import wofloven as boilerplate
 
 
 @boilerplate(#lat=(-30.0, -30.1),#-31.0),
