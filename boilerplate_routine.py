@@ -1,14 +1,6 @@
 """
-This module encapsulates all the "boilerplate" necessary
-to convert the WOFL algorithm to an application for automating
-WOFL production (in an "operations" context).
-
-This file uses the template of other datacube applications
-(e.g. fractional cover and NDVI) and specialises for WOFLs.
-
-This approach was pragmatic, given development constraints.
-A more elegant design would have much of this migrated into 
-the datacube repo, to minimise application-specific maintenance.
+This module encapsulates machinery to translate the WOFL algorithm into
+an application for automating WOFL production (in an "operations" context).
 """
 
 
@@ -75,7 +67,7 @@ measurements:
 
 global_attributes = """
 cmi_id: "WO_25_2.0.0"
-cmi_nid: 5
+cmi_nid: "5"
 title: "Water Observations 25 v. 2.0.0"
 summary: "Water Observations from Space (WO_25_2.0) is a gridded dataset indicating areas where surface water has been observed using the Geoscience Australia (GA) Earth observation satellite data holdings. The current product (Version 1.5) includes observations taken between 1987 and 2016 (inclusive) from the Landsat 5, 7 and 8 satellites. WO_25_2.0 covers all of mainland Australia and Tasmania but excludes off-shore Territories.
 
@@ -129,23 +121,20 @@ institution: "Commonwealth of Australia (Geoscience Australia)"
 keywords: ""
 keywords_vocabulary: ""
 product_version: "2.0.0"
-license: 
- - 
-  "CC BY Attribution 4.0 International License"
+license: "CC BY Attribution 4.0 International License"
 coverage_content_type: ""
 cdm_data_type: ""
 product_suite: ""
-acknowledgment: 
-references: 
- - 
-  "Geoscience Australia (2013) Australian Reflectance Grid (ARG25) Product Information - Beta Release- External Document TRIM Ref D2013-41317, Geoscience Australia, Canberra."
- - 
-  "Gallant, J., Dowling, T., and Austin, J. (2012): Multi-resolution Valley Bottom Flatness (MrVBF, 3&quot; resolution). v2. CSIRO. Data Collection. 10.4225/08/512EF27AC3888 http://dx.doi.org/10.4225/08/512EF27AC3888."
- - 
-  "Ticehurst, C J., Bartsch, A., Doubkova M.,and van Dijk, A.I.J.M. (2010) Comparison of ENVISAT ASAR ASAR GM, AMSR-E Passive Microwave, and MODIS Optical Remote Sensing for Flood Monitoring in Australia. Proceedings of the 'Earth Observation and Water Cycle Science', Frascati, Italy, 18-20 November 2009 (ESA SP-674, January 2010)."
- - 
-  "N. Mueller, A. Lewis, D. Roberts, S. Ring, R. Melrose, J. Sixsmith, L. Lymburner, A. McIntyre, P. Tan, S. Curnow, A. Ip, Water observations from space: Mapping surface water from 25 years of Landsat imagery across Australia, Remote Sensing of Environment, Volume 174, 1 March 2016, Pages 341-352, ISSN 0034-4257, http://dx.doi.org/10.1016/j.rse.2015.11.003. (http://www.sciencedirect.com/science/article/pii/S0034425715301929)"
+references: "Geoscience Australia (2013) Australian Reflectance Grid (ARG25) Product Information - Beta Release- External Document TRIM Ref D2013-41317, Geoscience Australia, Canberra.
+
+Gallant, J., Dowling, T., and Austin, J. (2012): Multi-resolution Valley Bottom Flatness (MrVBF, 3&quot; resolution). v2. CSIRO. Data Collection. 10.4225/08/512EF27AC3888 http://dx.doi.org/10.4225/08/512EF27AC3888.
+
+Ticehurst, C J., Bartsch, A., Doubkova M.,and van Dijk, A.I.J.M. (2010) Comparison of ENVISAT ASAR ASAR GM, AMSR-E Passive Microwave, and MODIS Optical Remote Sensing for Flood Monitoring in Australia. Proceedings of the 'Earth Observation and Water Cycle Science', Frascati, Italy, 18-20 November 2009 (ESA SP-674, January 2010).
+
+N. Mueller, A. Lewis, D. Roberts, S. Ring, R. Melrose, J. Sixsmith, L. Lymburner, A. McIntyre, P. Tan, S. Curnow, A. Ip, Water observations from space: Mapping surface water from 25 years of Landsat imagery across Australia, Remote Sensing of Environment, Volume 174, 1 March 2016, Pages 341-352, ISSN 0034-4257, http://dx.doi.org/10.1016/j.rse.2015.11.003. (http://www.sciencedirect.com/science/article/pii/S0034425715301929)"
 """ # end of global attributes
+
+
 
 def unpickle_stream(pickle_file):
     """Utility to stream unpickled objects from a file"""
