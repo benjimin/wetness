@@ -67,7 +67,7 @@ measurements:
     nodata: 1
     units: '1'
     flags_definition:
-      result:
+      type:                 # TODO: change this label..
         bits: [0,1,2,3,4,5,6,7]
         values: 
             128: clear_wet
@@ -121,7 +121,8 @@ def box_and_envelope(loadables):
     # data extent. (Note both are just named "extent" inconsistently.)
     # The latter exists as an optimisation to sometimes avoid loading large 
     # volumes of (exclusively) nodata values. 
-    bounding_box = source.geobox.extent # inherit array-boundary from post-load data
+    #assert len(set(x.geobox.extent for x in loadables)) == 1 # identical geoboxes are unequal?
+    bounding_box = loadables[0].geobox.extent # inherit array-boundary from post-load data
     def valid_data_envelope(loadables=list(loadables), crs=bounding_box.crs):
         def data_outline(tile):
             parts = (ds.extent.to_crs(crs).points for ds in tile.sources.values[0])
@@ -129,7 +130,7 @@ def box_and_envelope(loadables):
         footprints = [bounding_box.points] + map(data_outline, loadables)
         overlap = reduce(datacube.utils.intersect_points, footprints)
         return datacube.model.GeoPolygon(overlap, crs)    
-    return bounding_box, valid_data_envelope(loadables)
+    return bounding_box, valid_data_envelope()
 
 def docvariable(agdc_dataset, time):
     """Utility to convert datacube dataset to xarray/NetCDF variable"""
@@ -182,7 +183,7 @@ class datacube_application:
             print "Querying", t[0], "to", t[1]
             stream = pickle.Pickler(taskfile)
             i = 0
-            for task in self.generate_tasks(index, time_range=t):
+            for task in self.generate_tasks(index, time=t):
                 stream.dump(task)
                 i += 1
                 if i==max:
@@ -203,7 +204,7 @@ class datacube_application:
         cli()
 
 
-class debug_application(datacube_application)
+class debug_application(datacube_application):
     def main(self, index, max_tasks=2):
         """Simplified main interface, for one-run debugging"""
         tasks = list(self.generate_tasks(index, self.default_time_range, self.default_spatial_extent)) # find work to do
@@ -211,7 +212,7 @@ class debug_application(datacube_application)
         tasks = tasks[:max_tasks] # trim for debugging.     
         for task in tasks:
             print ".",
-            ds = taskdoer(*task) # do work
+            ds = self.perform_task(*task) # do work
             index.datasets.add(ds) # index completed work
         print "Done"
 
@@ -227,9 +228,9 @@ class wofloven(datacube_application):
         This function is the equivalent of an SQL join query,
         and is required as a workaround for datacube API abstraction layering.        
         """
-        gw = datacube.api.GridWorkflow(index, product=self.product)
+        gw = datacube.api.GridWorkflow(index, product=self.product.name) # GridSpec from product definition
 
-        wofls_loadables = gw.list_tiles(product=product.name, time=time, **extent)
+        wofls_loadables = gw.list_tiles(product=self.product.name, time=time, **extent)
 
         for platform in sensor.keys():
             source_loadables = gw.list_tiles(product=platform+'_nbar_albers', time=time, **extent)
