@@ -105,16 +105,29 @@ def map_orderless(core,tasks,queue=50):
         
         yield result.result() # unwrap future
 
+def get_product(index, definition):
+    """Utility to get database-record corresponding to product-definition"""
+    parsed = yaml.load(definition)
+    metadata_type = index.metadata_types.get_by_name(parsed['metadata_type'])
+    prototype = datacube.model.DatasetType(metadata_type, parsed)
+    return index.products.add(prototype) # idempotent
+    
+    
 
 
 class datacube_application:
     """Nonspecific application workflow."""
-    def generate_tasks(self, index):
-        """Prepare list of task argument tuples."""
+    product_definition = NotImplemented
+    def generate_tasks(self, index, time_range):
+        """Prepare stream of tasks (i.e. of argument tuples)."""
         raise NotImplemented
     def perform_task(self, *args):
-        """Do computation without database interaction"""
+        """Execute computation without database interaction"""
         raise NotImplemented
+    def __init__(self, time, **extent):
+        """Collect keyword options"""
+        self.default_time_range = time
+        self.default_spatial_extent = extent
     def __call__(self, algorithm):
         """Annotator API for application
         
@@ -122,8 +135,11 @@ class datacube_application:
         >>> def myfunction(input_chunk):
         >>>     return output_chunk
         """
+        index = datacube.Datacube().index        
         self.core = algorithm
-        self.main(datacube.Datacube().index)
+        self.product = get_product(index, self.product_definition)
+        self.main(index)
+        raise SystemExit
     def main(self, index):
         """Compatibility command-line-interface"""
         
@@ -140,7 +156,7 @@ class datacube_application:
             print "Querying", t[0], "to", t[1]
             stream = pickle.Pickler(taskfile)
             i = 0
-            for task in self.generate_tasks(index, time=t):
+            for task in self.generate_tasks(index, time_range=t):
                 stream.dump(task)
                 i += 1
                 if i==max:
@@ -164,26 +180,21 @@ class datacube_application:
 class monkeypatch_application(datacube_application)
     def main(self, index, max_tasks=2):
         """Simplified main interface, for debugging"""
-        valid_loadables = list(self.generate_tasks(index)) # find work to do
-        print len(valid_loadables), "tasks in total"
-        valid_loadables = valid_loadables[:max_tasks] # trim for debugging.     
-        for task in valid_loadables:
+        tasks = list(self.generate_tasks(index, self.default_time_range, self.default_spatial_extent)) # find work to do
+        print len(tasks), "tasks (total)"
+        tasks = tasks[:max_tasks] # trim for debugging.     
+        for task in tasks:
             print ".",
             ds = taskdoer(*task) # do work
             index.datasets.add(ds) # index completed work
-        print "Done."
+        print "Done"
 
 
 
 class wofloven(datacube_application):
     """Specialisations for Water Observation product"""
-    def __init__(self, time=None, extent=None):
-        pass
-    def generate_tasks(self, index, time, extent):
-        """ Prepare task-parameters (a series of nbar,ps,dsm[,filename] loadables) for dispatch to workers.
-
-        The concept is that workers shall not interact with the database index.
-        Instead, workers must be supplied file-paths as necessary for data I/O.
+    def generate_tasks(self, index, time, extent={}):
+        """ Yield loadables (nbar,ps,dsm) and targets, for dispatch to workers.
 
         This function is the equivalent of an SQL join query,
         and is required as a workaround for datacube API abstraction layering.        
