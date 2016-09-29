@@ -1,3 +1,19 @@
+"""
+This file is not needed, but can be used for quick visualisation purposes.
+
+
+Example:
+
+>>>from demo_boilerplate import wofloven as boilerplate
+>>>@boilerplate(time=.., lat=.., lon=..)
+>>>def algorithm(*input_chunks):
+>>>    return output_chunk
+
+<output figure>
+
+"""
+
+
 bands = ['blue','green','red','nir','swir1','swir2']
 
 platforms = ['ls8', 'ls7', 'ls5']
@@ -8,16 +24,6 @@ def wofloven(time, **extent):
     """Annotator for WOFL workflow""" 
     def main(core_func):
         print core_func.__name__
-
-        # The WOFS storage format will be chosen to mirror the EO archive.
-
-        # Inconveniently PQ is not stored as a measurement band within NBAR.
-        # Simplest hack is to query separately and join (afterward) on time.
-        # Later will explore joining beforehand (by source) and streaming results.
-        # Ultimately must also exclude tiles where WOFL exists already.
-
-        # The DSM has different resolution/CRS from the EO data,
-        # so entrust the API to reconstitute into a matching format.
 
         import datacube
         dc = datacube.Datacube()
@@ -34,13 +40,6 @@ def wofloven(time, **extent):
         ti = pq.time
         waters = xarray.concat((core_func(source.sel(time=t), pq.sel(time=t), dsm) for t in ti.values), ti).to_dataset(name='water')
 
-        # save output
-        waters.attrs['crs'] = source.crs
-        waters.water['crs'] = source.crs # datacube API may expect this attribute to also be set to something
-        try:
-            datacube.storage.storage.write_dataset_to_netcdf(waters,"waters.nc")
-        except RuntimeError: 
-            pass # does not overwrite if already exists
 
         # visualisation
         import numpy as np
