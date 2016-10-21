@@ -25,7 +25,7 @@ Multi-resolution Valley Bottom Flatness
 http://doi.org/10.4225/08/5701C885AB4FE
 CSIRO; CC-BY 4.0 Int; 1 arcsecond; 0.7GB; single integer band
 
-Geofabric (7 vector layers)
+Geofabric (7 vector layers from Surface Cartography)
 https://data.gov.au/dataset/australian-hydrological-geospatial-fabric-geofabric
 BOM; CC-BY 3.0 AU; v2.1.1; ESRI .gdb; 
 
@@ -56,6 +56,13 @@ urban_areas	 = -4.9358
 # (note WOfS excludes geofabric canal and rapid, by zero weighting)
 
 
+# the five ancillary sources 
+MrVBF_path = ""
+geofabric_path = ""
+ucl_path = "/g/data/v10/wofs/ancillary/ucl/UCL_2011_AUST.shp"
+owl_path = ""
+dsm_productname = ""
+
 """
 Development strategy:
 
@@ -69,6 +76,32 @@ Initial approach of operating for arbitrary region.
 
 To start with, just plot to confirm correct reading of all 11 datasets.
 
+Outline for vector stuff:
+    - fiona can read the shapefile
+    - alternatively, geopandas can read and filter on attributes
+    - may need to reproject into desired crs, e.g. by shapely
+    - rasterio can rasterise vectors (remaining in their native coord sys)
+      given an array shape and a transform (affine geocoding)
+    - note, should consider how want partial pixel coverage treated?
+    - datacube gridspec knows the crs, tile size, resolution, origin.
+      can obtain via index.products.get_by_name.grid_spec
+
+
 """
+import fiona
+
+fiona.
+
+def urban():
+    """
+    Only concerned with areas of 100k population or greater (--WOfS paper).
+    
+    UCL has type (SOS) and population (SSR) fields:
+    >>> geopandas.read_file(ucl_path)[['SOS_NAME11','SSR_NAME11']].drop_duplicates()
+    Output demonstrates that we only want 'Major Urban' type rows.
+    """
+    pass
 
 
+if __name__ == '__main__':
+    print 'hello'
